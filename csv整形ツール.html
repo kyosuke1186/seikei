@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>広告CSV整形ツール | BASEBALL MODE</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --field-green: #1f5f2c;
+    --field-green-dark: #174a22;
+    --field-green-light: #2d7a3a;
+    --dirt: #8b5a2b;
+    --dirt-dark: #6e451f;
+    --chalk: #f7f7f7;
+    --scoreboard: #111713;
+    --scoreboard-2: #182019;
+    --yellow: #ffd54a;
+    --red: #e74c3c;
+    --blue: #4da3ff;
+    --text: #f4f7f1;
+    --muted: #c9d6c9;
+    --panel: rgba(255,255,255,.06);
+  }
+
+  body {
+    min-height: 100vh;
+    padding: 36px 24px 48px;
+    color: var(--text);
+    font-family: 'Courier New', Menlo, monospace;
+    background:
+      radial-gradient(circle at top left, rgba(255,255,255,.08), transparent 18%),
+      radial-gradient(circle at bottom right, rgba(255,255,255,.06), transparent 20%),
+      repeating-linear-gradient(
+        90deg,
+        var(--field-green) 0px,
+        var(--field-green) 38px,
+        var(--field-green-dark) 38px,
+        var(--field-green-dark) 76px
+      );
+  }
+
+  .shell {
+    max-width: 1260px;
+    margin: 0 auto;
+  }
+
+  .header {
+    position: relative;
+    margin-bottom: 30px;
+    padding: 24px 26px;
+    border-radius: 20px;
+    border: 3px solid rgba(255,255,255,.16);
+    background:
+      linear-gradient(180deg, rgba(17,23,19,.92), rgba(24,32,25,.94));
+    box-shadow:
+      0 12px 32px rgba(0,0,0,.28),
+      inset 0 0 0 2px rgba(255,255,255,.03);
+    overflow: hidden;
+  }
+
+  .header::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(135deg, transparent 0 47%, rgba(255,255,255,.05) 47% 53%, transparent 53% 100%);
+    opacity: .35;
+  }
+
+  .header .label {
+    font-size: 11px;
+    letter-spacing: .3em;
+    color: #d8e6d8;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .header h1 {
+    font-size: 31px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    color: var(--chalk);
+    text-shadow: 0 2px 0 rgba(0,0,0,.25);
+  }
+
+  .header p {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+
+  .drop-zone {
+    position: relative;
+    margin-bottom: 28px;
+    padding: 56px 28px;
+    border-radius: 22px;
+    text-align: center;
+    cursor: pointer;
+    border: 4px solid rgba(255,255,255,.16);
+    background:
+      linear-gradient(180deg, rgba(17,23,19,.90), rgba(24,32,25,.94));
+    box-shadow:
+      0 10px 28px rgba(0,0,0,.24),
+      inset 0 0 0 2px rgba(255,255,255,.03);
+    transition: transform .15s, box-shadow .15s, background .15s;
+    overflow: hidden;
+  }
+
+  .drop-zone::before {
+    content: "";
+    position: absolute;
+    inset: 14px;
+    border: 2px dashed rgba(255,255,255,.28);
+    border-radius: 14px;
+    pointer-events: none;
+  }
+
+  .drop-zone:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 14px 36px rgba(0,0,0,.28),
+      inset 0 0 0 2px rgba(255,255,255,.05);
+  }
+
+  .drop-zone.drag {
+    background:
+      linear-gradient(180deg, rgba(35,72,41,.96), rgba(24,56,29,.98));
+    box-shadow:
+      0 16px 40px rgba(0,0,0,.30),
+      0 0 0 4px rgba(255,255,255,.08);
+  }
+
+  .drop-zone .icon {
+    font-size: 44px;
+    margin-bottom: 12px;
+  }
+
+  .drop-zone .main-text {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--chalk);
+    letter-spacing: .04em;
+  }
+
+  .drop-zone .sub-text {
+    margin-top: 9px;
+    font-size: 12px;
+    color: #d6e2d2;
+  }
+
+  #file-input {
+    display: none;
+  }
+
+  .results {
+    display: none;
+  }
+
+  .results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .results-header .count {
+    font-size: 12px;
+    color: #eef6ea;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    background: rgba(17,23,19,.75);
+    border: 2px solid rgba(255,255,255,.12);
+    padding: 8px 12px;
+    border-radius: 999px;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  button {
+    border: none;
+    cursor: pointer;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    letter-spacing: .06em;
+    transition: transform .12s, opacity .12s, box-shadow .12s;
+  }
+
+  button:hover {
+    transform: translateY(-1px);
+    opacity: .96;
+  }
+
+  .btn-primary {
+    color: #1f251f;
+    background: linear-gradient(180deg, #ffe88f, var(--yellow));
+    box-shadow: 0 6px 16px rgba(0,0,0,.22);
+  }
+
+  .btn-danger {
+    color: #fff;
+    background: linear-gradient(180deg, #b54d40, var(--red));
+    box-shadow: 0 6px 16px rgba(0,0,0,.22);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    border-radius: 20px;
+    background:
+      linear-gradient(180deg, rgba(17,23,19,.96), rgba(24,32,25,.98));
+    border: 3px solid rgba(255,255,255,.12);
+    box-shadow: 0 12px 28px rgba(0,0,0,.26);
+  }
+
+  thead tr {
+    background: linear-gradient(180deg, #2b342d, #1b231d);
+    border-bottom: 2px solid rgba(255,255,255,.10);
+  }
+
+  th {
+    padding: 14px 16px;
+    text-align: left;
+    color: #f6f9f3;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  th.right {
+    text-align: right;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    transition: background .12s;
+  }
+
+  tbody tr:hover {
+    background: rgba(255,255,255,.04);
+  }
+
+  tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  td {
+    padding: 14px 16px;
+  }
+
+  td.right {
+    text-align: right;
+  }
+
+  .td-filename {
+    color: #d8e6d8;
+    font-size: 12px;
+  }
+
+  .td-adcode {
+    color: var(--chalk);
+    font-weight: 700;
+  }
+
+  .td-mobile {
+    color: #9ff3a5;
+    font-weight: 700;
+  }
+
+  .td-pc {
+    color: #8cc6ff;
+    font-weight: 700;
+  }
+
+  .td-skip {
+    color: #ff9f93;
+    font-weight: 700;
+  }
+
+  .td-total {
+    color: #ffe89f;
+    font-weight: 700;
+  }
+
+  .legend {
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(17,23,19,.78);
+    border: 2px solid rgba(255,255,255,.10);
+    font-size: 12px;
+    color: #e1eadf;
+  }
+
+  .dot-green {
+    color: #8df59b;
+  }
+
+  .dot-blue {
+    color: #87c0ff;
+  }
+
+  .format-preview {
+    margin-top: 28px;
+    padding: 22px 24px;
+    border-radius: 20px;
+    background:
+      linear-gradient(180deg, rgba(139,90,43,.95), rgba(110,69,31,.96));
+    border: 3px solid rgba(255,255,255,.14);
+    box-shadow: 0 12px 28px rgba(0,0,0,.22);
+    color: #fff7eb;
+  }
+
+  .format-preview .title {
+    margin-bottom: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #fff7d6;
+  }
+
+  .format-preview table {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    font-size: 12px;
+  }
+
+  .format-preview th {
+    padding: 5px 14px;
+    color: #fff0d6;
+    border: none;
+    background: transparent;
+  }
+
+  .format-preview td {
+    padding: 6px 14px;
+    border: none;
+  }
+
+  .format-preview td.green {
+    color: #dbffd8;
+    font-weight: 700;
+  }
+
+  .format-preview td.blue {
+    color: #d4e9ff;
+    font-weight: 700;
+  }
+
+  .format-preview td.dim {
+    color: rgba(255,255,255,.48);
+  }
+
+  .format-preview td.kana {
+    color: #fff9eb;
+    font-weight: 700;
+  }
+
+  .note {
+    margin-top: 14px;
+    color: #fff0d2;
+    font-size: 11px;
+    opacity: .9;
+  }
+
+  @media (max-width: 760px) {
+    body {
+      padding: 18px 12px 30px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+    }
+
+    .drop-zone {
+      padding: 42px 16px;
+    }
+
+    .drop-zone .main-text {
+      font-size: 15px;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      font-size: 11px;
+    }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.2.0/encoding.min.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <div class="header">
+    <div class="label">Mail CSV Formatter / Baseball Scoreboard Mode</div>
+    <h1>広告CSV整形ツール</h1>
+    <p>複数CSVを投入 → 自動整形・結合 → 日付ファイルでダウンロード</p>
+  </div>
+
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept=".csv" multiple>
+    <div class="icon">⚾</div>
+    <div class="main-text" id="drop-text">CSVファイルを投入（複数同時OK）</div>
+    <div class="sub-text">クリックしてファイル選択も可</div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="results-header">
+      <div class="count" id="results-count"></div>
+      <div class="btn-group">
+        <button class="btn-danger" onclick="clearAll()">クリア</button>
+        <button class="btn-primary" onclick="downloadMerged()">スコア出力</button>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ファイル名</th>
+          <th>広告コード</th>
+          <th class="right">モバイル行数</th>
+          <th class="right">PC行数</th>
+          <th class="right">拒否除外</th>
+          <th class="right">合計行数</th>
+        </tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+
+    <div class="legend">
+      <span><span class="dot-green">●</span> モバイル: au / docomo / softbank / vodafone 系</span>
+      <span><span class="dot-blue">●</span> PC: 上記以外（拒否リスト除外済み）</span>
+    </div>
+  </div>
+
+  <div class="format-preview">
+    <div class="title">出力フォーマット（1行1アドレス）</div>
+    <table>
+      <thead>
+        <tr><th>A列</th><th>B</th><th>C</th><th>D列</th><th>E列</th><th>F</th><th>G</th><th>H列</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="kana">あなた</td><td class="dim">空</td><td class="dim">空</td>
+          <td class="green">モバイルアドレス</td><td class="dim">空</td>
+          <td class="dim">空</td><td class="dim">空</td><td class="kana">広告コード</td>
+        </tr>
+        <tr>
+          <td class="kana">あなた</td><td class="dim">空</td><td class="dim">空</td>
+          <td class="dim">空</td><td class="blue">PCアドレス</td>
+          <td class="dim">空</td><td class="dim">空</td><td class="kana">広告コード</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note">出力ファイル名: 今日の日付.csv（例: 20260318.csv）　文字コード: Shift_JIS（CSVコンマ区切り）</div>
+  </div>
+
+</div>
+
+<script>
+const MOBILE_DOMAINS = new Set([
+  "au.com","c.vodafone.ne.jp","d.vodafone.ne.jp","docomo.ne.jp",
+  "ezweb.ne.jp","h.vodafone.ne.jp","i.softbank.jp","k.vodafone.ne.jp",
+  "n.vodafone.ne.jp","q.vodafone.ne.jp","r.vodafone.ne.jp","s.vodafone.ne.jp",
+  "t.vodafone.ne.jp","vodafone.ne.jp"
+]);
+
+const REJECT_LIST = new Set([
+  "kawamoto.kimiko@jp.panasonic.com","kawagoe@kentaku.co.jp",
+  "kato.kazunori@jp.panasonic.com","kashiwakura-katsuhiro@sistm.co.jp",
+  "kanzaki.shuichiro@jp.panasonic.com","kaname@ishida.co.jp",
+  "kakehata.ch@jp.panasonic.com","kaise.yoshinori@tepco.co.jp",
+  "jinji@seiko-sts.co.jp","iwanami.f@tepco.co.jp",
+  "iwanaga.2h4.okinori@krosaki.co.jp","iuchi.rie@kk.jp.panasonic.com",
+  "itou-ho2@kandenko.co.jp","ishii.hideaki@stepon.co.jp",
+  "ishihara@shimabun.co.jp","ishiguro_yoshihisa@grp.conveyor.co.jp",
+  "ishida@lifedesign.co.jp","ishibashi.mitsuru326@jp.panasonic.com",
+  "isamu.miyoshi@nittoc.co.jp","irii@maruhachi-co.jp",
+  "info-k@e-hakuba.com","info@minatostyle.co.jp",
+  "info@hiro-ex.com","info@discdog.co.jp","info@cedar.jp",
+  "imamura.taiki@jp.panasonic.com","ikurou.kishi@daikin.co.jp",
+  "ikeda.shinkichi@jp.panasonic.com","ichinose.yoshi@tepco.co.jp",
+  "huge@ehime-np.co.jp","htm_hirayama@daidokogyo.co.jp",
+  "htatsukawa@shinkoh-elecs.co.jp","hosting@ini.co.jp",
+  "honsyaeigyo@morihei.com","honsha_softcalm@toho-zinc.co.jp",
+  "honsha_kanri_system@toho-zinc.co.jp","hongkong_buhin@toho-zinc.co.jp",
+  "hiroyuki_yoshizawa@mufg.jp","hirotos@it.secnet.co.jp",
+  "hiroshi_kusama@pharm.kissei.co.jp","hiroki.koizumi@jp.yazaki.com",
+  "hiranuma.kanji@jp.panasonic.com","himejinishi@kentaku.co.jp",
+  "hideki.kamizono@jnfl.co.jp","hayashi@tsf.tgn.ne.jp",
+  "hayashi.hiroyuki243@jp.panasonic.com","hayashi.hiroyuki232@jp.panasonic.com",
+  "hayasaka.kyoko@jp.panasonic.com","hashizume.hiroyoshi@tepco.co.jp",
+  "hamanaka@star.fielding.nec.co.jp","greenfield@green-f.biz",
+  "g009jss-mng@ml.gakkai.ne.jp","funabashi@kentaku.co.jp",
+  "fukuyamah@kge.co.jp","fukuokanishi@kentaku.co.jp",
+  "fukui@daiwaliving.co.jp","fukuda@bsnnet.co.jp",
+  "fujisaw.koichi@jp.panasonic.com","fujikawa-n@star.fielding.nec.co.jp",
+  "fjinbo@dsk.daido.co.jp","e-takenokoshi@ac.daido.co.jp",
+  "emiko_uchiyama@mufg.jp","e-mailsaga1@saga-s.edu.city.kyoto.jp",
+  "eijirou_nishi@mufg.jp","edahiro.naoaki@jp.panasonic.com",
+  "eco-club@tepco.co.jp","e_info@shinseifinancial.co.jp",
+  "e.takahashi@port-of-nagoya.jp","demizu.yoshiyuki@stepon.co.jp",
+  "deform@yamanaka-eng.co.jp","dec-yoshimura@sog.daido.co.jp",
+  "dec-noda@sog.daido.co.jp","customer@nikkeimm.co.jp",
+  "contact@shiftbrain.co.jp","chushikoku@aaconst.co.jp",
+  "cad-master@photron.co.jp","business@jpccom.com",
+  "bbarker@tkw.com","bb3132@bigboyjapan.co.jp","bb3101@bigboyjapan.co.jp",
+  "atsuo-akiyo@toho-zinc.co.jp","asaoka.seiki@jp.panasonic.com",
+  "asai@fdk.co.jp","aokihi@aig.co.jp",
+  "aoki.hiroshi004@jp.panasonic.com","anzai@mxp.nes.nec.co.jp",
+  "amemiya.tomohiro@tepco.co.jp","akiyam@bsnnet.co.jp",
+  "akata-tomochika@toho-zinc.co.jp","ag05d@mail.yondenko.co.jp",
+  "ag.yokomizo.hideaki@metlife.co.jp","adsales@hatena.ne.jp",
+  "27392839.72071.sa.safeattach@mutoh.co.jp",
+  "200601241824164532.272@sog.daido.co.jp","0815@nakafu.com"
+]);
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isMobile(email) {
+  const domain = (email.split("@")[1] || "").toLowerCase();
+  return MOBILE_DOMAINS.has(domain);
+}
+
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const cells = [];
+    let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQ && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQ = !inQ;
+        }
+      } else if (c === ',' && !inQ) {
+        cells.push(cur.trim());
+        cur = "";
+      } else {
+        cur += c;
+      }
+    }
+    cells.push(cur.trim());
+    rows.push(cells);
+  }
+  return rows;
+}
+
+let allResults = [];
+
+function processFile(name, text) {
+  const originalName = name;
+  const baseName = originalName.replace(/\.[^/.]+$/, "");
+  const adCode = "kaiun_" + baseName;
+  const rows = parseCSV(text);
+  let mobileEmails = [], pcEmails = [], skipCount = 0;
+
+  for (const row of rows) {
+    const cell = (row[0] || "").trim();
+    if (!EMAIL_RE.test(cell)) continue;
+    const email = cell.toLowerCase();
+
+    if (isMobile(email)) {
+      mobileEmails.push(email);
+    } else {
+      if (REJECT_LIST.has(email)) {
+        skipCount++;
+      } else {
+        pcEmails.push(email);
+      }
+    }
+  }
+
+  return { name: originalName, adCode, mobile: mobileEmails, pc: pcEmails, skip: skipCount };
+}
+
+function getTodayStr() {
+  const d = new Date();
+  return ${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")};
+}
+
+function q(s) {
+  return "${(s || "").replace(/"/g, '""')}";
+}
+
+function buildMergedCSV(results) {
+  const rows = [];
+  for (const r of results) {
+    for (const mob of r.mobile) {
+      rows.push([q("あなた"), q(""), q(""), q(mob), q(""), q(""), q(""), q(r.adCode)].join(","));
+    }
+    for (const pc of r.pc) {
+      rows.push([q("あなた"), q(""), q(""), q(""), q(pc), q(""), q(""), q(r.adCode)].join(","));
+    }
+  }
+  return rows.join("\r\n");
+}
+
+function downloadMerged() {
+  if (allResults.length === 0) return;
+
+  const csv = buildMergedCSV(allResults);
+
+  const sjisArray = Encoding.convert(csv, {
+    to: "SJIS",
+    from: "UNICODE",
+    type: "array"
+  });
+
+  const uint8Array = new Uint8Array(sjisArray);
+  const blob = new Blob([uint8Array], { type: "text/csv" });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = getTodayStr() + ".csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderResults() {
+  const tbody = document.getElementById("results-body");
+  tbody.innerHTML = "";
+  let totalMobile = 0, totalPc = 0, totalSkip = 0;
+
+  for (const r of allResults) {
+    totalMobile += r.mobile.length;
+    totalPc += r.pc.length;
+    totalSkip += r.skip;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = 
+      <td class="td-filename">${escHtml(r.name)}</td>
+      <td class="td-adcode">${escHtml(r.adCode)}</td>
+      <td class="right td-mobile">${r.mobile.length.toLocaleString()}</td>
+      <td class="right td-pc">${r.pc.length.toLocaleString()}</td>
+      <td class="right td-skip">${r.skip.toLocaleString()}</td>
+      <td class="right td-total">${(r.mobile.length + r.pc.length).toLocaleString()}</td>
+    ;
+    tbody.appendChild(tr);
+  }
+
+  if (allResults.length > 1) {
+    const tr = document.createElement("tr");
+    tr.style.cssText = "border-top:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05)";
+    tr.innerHTML = 
+      <td style="color:#fff;font-size:11px;letter-spacing:.10em;font-weight:700">TOTAL</td>
+      <td></td>
+      <td class="right td-mobile" style="font-weight:700">${totalMobile.toLocaleString()}</td>
+      <td class="right td-pc" style="font-weight:700">${totalPc.toLocaleString()}</td>
+      <td class="right td-skip" style="font-weight:700">${totalSkip.toLocaleString()}</td>
+      <td class="right td-total" style="font-weight:700">${(totalMobile + totalPc).toLocaleString()}</td>
+    ;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById("results-count").textContent = ${allResults.length}ファイル処理完了;
+  document.getElementById("results").style.display = "block";
+}
+
+function clearAll() {
+  allResults = [];
+  document.getElementById("results").style.display = "none";
+  document.getElementById("results-body").innerHTML = "";
+  document.getElementById("drop-text").textContent = "CSVファイルを投入（複数同時OK）";
+  document.getElementById("file-input").value = "";
+}
+
+async function readFileSmart(file) {
+  const buffer = await file.arrayBuffer();
+  const uint8 = new Uint8Array(buffer);
+
+  let text = "";
+  try {
+    text = new TextDecoder("shift-jis").decode(uint8);
+  } catch (e) {
+    text = new TextDecoder("utf-8").decode(uint8);
+  }
+
+  if (!text || text.indexOf("�") !== -1) {
+    try {
+      text = new TextDecoder("utf-8").decode(uint8);
+    } catch (e) {}
+  }
+
+  return text;
+}
+
+async function handleFiles(files) {
+  const csvFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith(".csv"));
+  if (!csvFiles.length) return;
+
+  document.getElementById("drop-text").textContent = "試合集計中...";
+
+  const existingNames = new Set(allResults.map(r => r.name));
+  const targets = csvFiles.filter(f => !existingNames.has(f.name));
+
+  const processed = await Promise.all(
+    targets.map(async f => {
+      try {
+        const text = await readFileSmart(f);
+        return processFile(f.name, text);
+      } catch (e) {
+        return null;
+      }
+    })
+  );
+
+  allResults = [...allResults, ...processed.filter(Boolean)];
+  document.getElementById("drop-text").textContent = "さらに追加登録できます";
+  renderResults();
+}
+
+const dropZone = document.getElementById("drop-zone");
+const fileInput = document.getElementById("file-input");
+
+dropZone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", e => handleFiles(e.target.files));
+
+dropZone.addEventListener("dragover", e => {
+  e.preventDefault();
+  dropZone.classList.add("drag");
+});
+
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove("drag");
+});
+
+dropZone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropZone.classList.remove("drag");
+  handleFiles(e.dataTransfer.files);
+});
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>広告CSV整形ツール | BASEBALL MODE</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --field-green: #1f5f2c;
+    --field-green-dark: #174a22;
+    --field-green-light: #2d7a3a;
+    --dirt: #8b5a2b;
+    --dirt-dark: #6e451f;
+    --chalk: #f7f7f7;
+    --scoreboard: #111713;
+    --scoreboard-2: #182019;
+    --yellow: #ffd54a;
+    --red: #e74c3c;
+    --blue: #4da3ff;
+    --text: #f4f7f1;
+    --muted: #c9d6c9;
+    --panel: rgba(255,255,255,.06);
+  }
+
+  body {
+    min-height: 100vh;
+    padding: 36px 24px 48px;
+    color: var(--text);
+    font-family: 'Courier New', Menlo, monospace;
+    background:
+      radial-gradient(circle at top left, rgba(255,255,255,.08), transparent 18%),
+      radial-gradient(circle at bottom right, rgba(255,255,255,.06), transparent 20%),
+      repeating-linear-gradient(
+        90deg,
+        var(--field-green) 0px,
+        var(--field-green) 38px,
+        var(--field-green-dark) 38px,
+        var(--field-green-dark) 76px
+      );
+  }
+
+  .shell {
+    max-width: 1260px;
+    margin: 0 auto;
+  }
+
+  .header {
+    position: relative;
+    margin-bottom: 30px;
+    padding: 24px 26px;
+    border-radius: 20px;
+    border: 3px solid rgba(255,255,255,.16);
+    background:
+      linear-gradient(180deg, rgba(17,23,19,.92), rgba(24,32,25,.94));
+    box-shadow:
+      0 12px 32px rgba(0,0,0,.28),
+      inset 0 0 0 2px rgba(255,255,255,.03);
+    overflow: hidden;
+  }
+
+  .header::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(135deg, transparent 0 47%, rgba(255,255,255,.05) 47% 53%, transparent 53% 100%);
+    opacity: .35;
+  }
+
+  .header .label {
+    font-size: 11px;
+    letter-spacing: .3em;
+    color: #d8e6d8;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .header h1 {
+    font-size: 31px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    color: var(--chalk);
+    text-shadow: 0 2px 0 rgba(0,0,0,.25);
+  }
+
+  .header p {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+
+  .drop-zone {
+    position: relative;
+    margin-bottom: 28px;
+    padding: 56px 28px;
+    border-radius: 22px;
+    text-align: center;
+    cursor: pointer;
+    border: 4px solid rgba(255,255,255,.16);
+    background:
+      linear-gradient(180deg, rgba(17,23,19,.90), rgba(24,32,25,.94));
+    box-shadow:
+      0 10px 28px rgba(0,0,0,.24),
+      inset 0 0 0 2px rgba(255,255,255,.03);
+    transition: transform .15s, box-shadow .15s, background .15s;
+    overflow: hidden;
+  }
+
+  .drop-zone::before {
+    content: "";
+    position: absolute;
+    inset: 14px;
+    border: 2px dashed rgba(255,255,255,.28);
+    border-radius: 14px;
+    pointer-events: none;
+  }
+
+  .drop-zone:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 14px 36px rgba(0,0,0,.28),
+      inset 0 0 0 2px rgba(255,255,255,.05);
+  }
+
+  .drop-zone.drag {
+    background:
+      linear-gradient(180deg, rgba(35,72,41,.96), rgba(24,56,29,.98));
+    box-shadow:
+      0 16px 40px rgba(0,0,0,.30),
+      0 0 0 4px rgba(255,255,255,.08);
+  }
+
+  .drop-zone .icon {
+    font-size: 44px;
+    margin-bottom: 12px;
+  }
+
+  .drop-zone .main-text {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--chalk);
+    letter-spacing: .04em;
+  }
+
+  .drop-zone .sub-text {
+    margin-top: 9px;
+    font-size: 12px;
+    color: #d6e2d2;
+  }
+
+  #file-input {
+    display: none;
+  }
+
+  .results {
+    display: none;
+  }
+
+  .results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .results-header .count {
+    font-size: 12px;
+    color: #eef6ea;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    background: rgba(17,23,19,.75);
+    border: 2px solid rgba(255,255,255,.12);
+    padding: 8px 12px;
+    border-radius: 999px;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  button {
+    border: none;
+    cursor: pointer;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    letter-spacing: .06em;
+    transition: transform .12s, opacity .12s, box-shadow .12s;
+  }
+
+  button:hover {
+    transform: translateY(-1px);
+    opacity: .96;
+  }
+
+  .btn-primary {
+    color: #1f251f;
+    background: linear-gradient(180deg, #ffe88f, var(--yellow));
+    box-shadow: 0 6px 16px rgba(0,0,0,.22);
+  }
+
+  .btn-danger {
+    color: #fff;
+    background: linear-gradient(180deg, #b54d40, var(--red));
+    box-shadow: 0 6px 16px rgba(0,0,0,.22);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    border-radius: 20px;
+    background:
+      linear-gradient(180deg, rgba(17,23,19,.96), rgba(24,32,25,.98));
+    border: 3px solid rgba(255,255,255,.12);
+    box-shadow: 0 12px 28px rgba(0,0,0,.26);
+  }
+
+  thead tr {
+    background: linear-gradient(180deg, #2b342d, #1b231d);
+    border-bottom: 2px solid rgba(255,255,255,.10);
+  }
+
+  th {
+    padding: 14px 16px;
+    text-align: left;
+    color: #f6f9f3;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  th.right {
+    text-align: right;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    transition: background .12s;
+  }
+
+  tbody tr:hover {
+    background: rgba(255,255,255,.04);
+  }
+
+  tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  td {
+    padding: 14px 16px;
+  }
+
+  td.right {
+    text-align: right;
+  }
+
+  .td-filename {
+    color: #d8e6d8;
+    font-size: 12px;
+  }
+
+  .td-adcode {
+    color: var(--chalk);
+    font-weight: 700;
+  }
+
+  .td-mobile {
+    color: #9ff3a5;
+    font-weight: 700;
+  }
+
+  .td-pc {
+    color: #8cc6ff;
+    font-weight: 700;
+  }
+
+  .td-skip {
+    color: #ff9f93;
+    font-weight: 700;
+  }
+
+  .td-total {
+    color: #ffe89f;
+    font-weight: 700;
+  }
+
+  .legend {
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(17,23,19,.78);
+    border: 2px solid rgba(255,255,255,.10);
+    font-size: 12px;
+    color: #e1eadf;
+  }
+
+  .dot-green {
+    color: #8df59b;
+  }
+
+  .dot-blue {
+    color: #87c0ff;
+  }
+
+  .format-preview {
+    margin-top: 28px;
+    padding: 22px 24px;
+    border-radius: 20px;
+    background:
+      linear-gradient(180deg, rgba(139,90,43,.95), rgba(110,69,31,.96));
+    border: 3px solid rgba(255,255,255,.14);
+    box-shadow: 0 12px 28px rgba(0,0,0,.22);
+    color: #fff7eb;
+  }
+
+  .format-preview .title {
+    margin-bottom: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #fff7d6;
+  }
+
+  .format-preview table {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    font-size: 12px;
+  }
+
+  .format-preview th {
+    padding: 5px 14px;
+    color: #fff0d6;
+    border: none;
+    background: transparent;
+  }
+
+  .format-preview td {
+    padding: 6px 14px;
+    border: none;
+  }
+
+  .format-preview td.green {
+    color: #dbffd8;
+    font-weight: 700;
+  }
+
+  .format-preview td.blue {
+    color: #d4e9ff;
+    font-weight: 700;
+  }
+
+  .format-preview td.dim {
+    color: rgba(255,255,255,.48);
+  }
+
+  .format-preview td.kana {
+    color: #fff9eb;
+    font-weight: 700;
+  }
+
+  .note {
+    margin-top: 14px;
+    color: #fff0d2;
+    font-size: 11px;
+    opacity: .9;
+  }
+
+  @media (max-width: 760px) {
+    body {
+      padding: 18px 12px 30px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+    }
+
+    .drop-zone {
+      padding: 42px 16px;
+    }
+
+    .drop-zone .main-text {
+      font-size: 15px;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      font-size: 11px;
+    }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.2.0/encoding.min.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <div class="header">
+    <div class="label">Mail CSV Formatter / Baseball Scoreboard Mode</div>
+    <h1>広告CSV整形ツール</h1>
+    <p>複数CSVを投入 → 自動整形・結合 → 日付ファイルでダウンロード</p>
+  </div>
+
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept=".csv" multiple>
+    <div class="icon">⚾</div>
+    <div class="main-text" id="drop-text">CSVファイルを投入（複数同時OK）</div>
+    <div class="sub-text">クリックしてファイル選択も可</div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="results-header">
+      <div class="count" id="results-count"></div>
+      <div class="btn-group">
+        <button class="btn-danger" onclick="clearAll()">クリア</button>
+        <button class="btn-primary" onclick="downloadMerged()">スコア出力</button>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ファイル名</th>
+          <th>広告コード</th>
+          <th class="right">モバイル行数</th>
+          <th class="right">PC行数</th>
+          <th class="right">拒否除外</th>
+          <th class="right">合計行数</th>
+        </tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+
+    <div class="legend">
+      <span><span class="dot-green">●</span> モバイル: au / docomo / softbank / vodafone 系</span>
+      <span><span class="dot-blue">●</span> PC: 上記以外（拒否リスト除外済み）</span>
+    </div>
+  </div>
+
+  <div class="format-preview">
+    <div class="title">出力フォーマット（1行1アドレス）</div>
+    <table>
+      <thead>
+        <tr><th>A列</th><th>B</th><th>C</th><th>D列</th><th>E列</th><th>F</th><th>G</th><th>H列</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="kana">あなた</td><td class="dim">空</td><td class="dim">空</td>
+          <td class="green">モバイルアドレス</td><td class="dim">空</td>
+          <td class="dim">空</td><td class="dim">空</td><td class="kana">広告コード</td>
+        </tr>
+        <tr>
+          <td class="kana">あなた</td><td class="dim">空</td><td class="dim">空</td>
+          <td class="dim">空</td><td class="blue">PCアドレス</td>
+          <td class="dim">空</td><td class="dim">空</td><td class="kana">広告コード</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note">出力ファイル名: 今日の日付.csv（例: 20260318.csv）　文字コード: Shift_JIS（CSVコンマ区切り）</div>
+  </div>
+
+</div>
+
+<script>
+const MOBILE_DOMAINS = new Set([
+  "au.com","c.vodafone.ne.jp","d.vodafone.ne.jp","docomo.ne.jp",
+  "ezweb.ne.jp","h.vodafone.ne.jp","i.softbank.jp","k.vodafone.ne.jp",
+  "n.vodafone.ne.jp","q.vodafone.ne.jp","r.vodafone.ne.jp","s.vodafone.ne.jp",
+  "t.vodafone.ne.jp","vodafone.ne.jp"
+]);
+
+const REJECT_LIST = new Set([
+  "kawamoto.kimiko@jp.panasonic.com","kawagoe@kentaku.co.jp",
+  "kato.kazunori@jp.panasonic.com","kashiwakura-katsuhiro@sistm.co.jp",
+  "kanzaki.shuichiro@jp.panasonic.com","kaname@ishida.co.jp",
+  "kakehata.ch@jp.panasonic.com","kaise.yoshinori@tepco.co.jp",
+  "jinji@seiko-sts.co.jp","iwanami.f@tepco.co.jp",
+  "iwanaga.2h4.okinori@krosaki.co.jp","iuchi.rie@kk.jp.panasonic.com",
+  "itou-ho2@kandenko.co.jp","ishii.hideaki@stepon.co.jp",
+  "ishihara@shimabun.co.jp","ishiguro_yoshihisa@grp.conveyor.co.jp",
+  "ishida@lifedesign.co.jp","ishibashi.mitsuru326@jp.panasonic.com",
+  "isamu.miyoshi@nittoc.co.jp","irii@maruhachi-co.jp",
+  "info-k@e-hakuba.com","info@minatostyle.co.jp",
+  "info@hiro-ex.com","info@discdog.co.jp","info@cedar.jp",
+  "imamura.taiki@jp.panasonic.com","ikurou.kishi@daikin.co.jp",
+  "ikeda.shinkichi@jp.panasonic.com","ichinose.yoshi@tepco.co.jp",
+  "huge@ehime-np.co.jp","htm_hirayama@daidokogyo.co.jp",
+  "htatsukawa@shinkoh-elecs.co.jp","hosting@ini.co.jp",
+  "honsyaeigyo@morihei.com","honsha_softcalm@toho-zinc.co.jp",
+  "honsha_kanri_system@toho-zinc.co.jp","hongkong_buhin@toho-zinc.co.jp",
+  "hiroyuki_yoshizawa@mufg.jp","hirotos@it.secnet.co.jp",
+  "hiroshi_kusama@pharm.kissei.co.jp","hiroki.koizumi@jp.yazaki.com",
+  "hiranuma.kanji@jp.panasonic.com","himejinishi@kentaku.co.jp",
+  "hideki.kamizono@jnfl.co.jp","hayashi@tsf.tgn.ne.jp",
+  "hayashi.hiroyuki243@jp.panasonic.com","hayashi.hiroyuki232@jp.panasonic.com",
+  "hayasaka.kyoko@jp.panasonic.com","hashizume.hiroyoshi@tepco.co.jp",
+  "hamanaka@star.fielding.nec.co.jp","greenfield@green-f.biz",
+  "g009jss-mng@ml.gakkai.ne.jp","funabashi@kentaku.co.jp",
+  "fukuyamah@kge.co.jp","fukuokanishi@kentaku.co.jp",
+  "fukui@daiwaliving.co.jp","fukuda@bsnnet.co.jp",
+  "fujisaw.koichi@jp.panasonic.com","fujikawa-n@star.fielding.nec.co.jp",
+  "fjinbo@dsk.daido.co.jp","e-takenokoshi@ac.daido.co.jp",
+  "emiko_uchiyama@mufg.jp","e-mailsaga1@saga-s.edu.city.kyoto.jp",
+  "eijirou_nishi@mufg.jp","edahiro.naoaki@jp.panasonic.com",
+  "eco-club@tepco.co.jp","e_info@shinseifinancial.co.jp",
+  "e.takahashi@port-of-nagoya.jp","demizu.yoshiyuki@stepon.co.jp",
+  "deform@yamanaka-eng.co.jp","dec-yoshimura@sog.daido.co.jp",
+  "dec-noda@sog.daido.co.jp","customer@nikkeimm.co.jp",
+  "contact@shiftbrain.co.jp","chushikoku@aaconst.co.jp",
+  "cad-master@photron.co.jp","business@jpccom.com",
+  "bbarker@tkw.com","bb3132@bigboyjapan.co.jp","bb3101@bigboyjapan.co.jp",
+  "atsuo-akiyo@toho-zinc.co.jp","asaoka.seiki@jp.panasonic.com",
+  "asai@fdk.co.jp","aokihi@aig.co.jp",
+  "aoki.hiroshi004@jp.panasonic.com","anzai@mxp.nes.nec.co.jp",
+  "amemiya.tomohiro@tepco.co.jp","akiyam@bsnnet.co.jp",
+  "akata-tomochika@toho-zinc.co.jp","ag05d@mail.yondenko.co.jp",
+  "ag.yokomizo.hideaki@metlife.co.jp","adsales@hatena.ne.jp",
+  "27392839.72071.sa.safeattach@mutoh.co.jp",
+  "200601241824164532.272@sog.daido.co.jp","0815@nakafu.com"
+]);
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isMobile(email) {
+  const domain = (email.split("@")[1] || "").toLowerCase();
+  return MOBILE_DOMAINS.has(domain);
+}
+
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const cells = [];
+    let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQ && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQ = !inQ;
+        }
+      } else if (c === ',' && !inQ) {
+        cells.push(cur.trim());
+        cur = "";
+      } else {
+        cur += c;
+      }
+    }
+    cells.push(cur.trim());
+    rows.push(cells);
+  }
+  return rows;
+}
+
+let allResults = [];
+
+function processFile(name, text) {
+  const originalName = name;
+  const baseName = originalName.replace(/\.[^/.]+$/, "");
+  const adCode = "kaiun_" + baseName;
+  const rows = parseCSV(text);
+  let mobileEmails = [], pcEmails = [], skipCount = 0;
+
+  for (const row of rows) {
+    const cell = (row[0] || "").trim();
+    if (!EMAIL_RE.test(cell)) continue;
+    const email = cell.toLowerCase();
+
+    if (isMobile(email)) {
+      mobileEmails.push(email);
+    } else {
+      if (REJECT_LIST.has(email)) {
+        skipCount++;
+      } else {
+        pcEmails.push(email);
+      }
+    }
+  }
+
+  return { name: originalName, adCode, mobile: mobileEmails, pc: pcEmails, skip: skipCount };
+}
+
+function getTodayStr() {
+  const d = new Date();
+  return ${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")};
+}
+
+function q(s) {
+  return "${(s || "").replace(/"/g, '""')}";
+}
+
+function buildMergedCSV(results) {
+  const rows = [];
+  for (const r of results) {
+    for (const mob of r.mobile) {
+      rows.push([q("あなた"), q(""), q(""), q(mob), q(""), q(""), q(""), q(r.adCode)].join(","));
+    }
+    for (const pc of r.pc) {
+      rows.push([q("あなた"), q(""), q(""), q(""), q(pc), q(""), q(""), q(r.adCode)].join(","));
+    }
+  }
+  return rows.join("\r\n");
+}
+
+function downloadMerged() {
+  if (allResults.length === 0) return;
+
+  const csv = buildMergedCSV(allResults);
+
+  const sjisArray = Encoding.convert(csv, {
+    to: "SJIS",
+    from: "UNICODE",
+    type: "array"
+  });
+
+  const uint8Array = new Uint8Array(sjisArray);
+  const blob = new Blob([uint8Array], { type: "text/csv" });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = getTodayStr() + ".csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderResults() {
+  const tbody = document.getElementById("results-body");
+  tbody.innerHTML = "";
+  let totalMobile = 0, totalPc = 0, totalSkip = 0;
+
+  for (const r of allResults) {
+    totalMobile += r.mobile.length;
+    totalPc += r.pc.length;
+    totalSkip += r.skip;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = 
+      <td class="td-filename">${escHtml(r.name)}</td>
+      <td class="td-adcode">${escHtml(r.adCode)}</td>
+      <td class="right td-mobile">${r.mobile.length.toLocaleString()}</td>
+      <td class="right td-pc">${r.pc.length.toLocaleString()}</td>
+      <td class="right td-skip">${r.skip.toLocaleString()}</td>
+      <td class="right td-total">${(r.mobile.length + r.pc.length).toLocaleString()}</td>
+    ;
+    tbody.appendChild(tr);
+  }
+
+  if (allResults.length > 1) {
+    const tr = document.createElement("tr");
+    tr.style.cssText = "border-top:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05)";
+    tr.innerHTML = 
+      <td style="color:#fff;font-size:11px;letter-spacing:.10em;font-weight:700">TOTAL</td>
+      <td></td>
+      <td class="right td-mobile" style="font-weight:700">${totalMobile.toLocaleString()}</td>
+      <td class="right td-pc" style="font-weight:700">${totalPc.toLocaleString()}</td>
+      <td class="right td-skip" style="font-weight:700">${totalSkip.toLocaleString()}</td>
+      <td class="right td-total" style="font-weight:700">${(totalMobile + totalPc).toLocaleString()}</td>
+    ;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById("results-count").textContent = ${allResults.length}ファイル処理完了;
+  document.getElementById("results").style.display = "block";
+}
+
+function clearAll() {
+  allResults = [];
+  document.getElementById("results").style.display = "none";
+  document.getElementById("results-body").innerHTML = "";
+  document.getElementById("drop-text").textContent = "CSVファイルを投入（複数同時OK）";
+  document.getElementById("file-input").value = "";
+}
+
+async function readFileSmart(file) {
+  const buffer = await file.arrayBuffer();
+  const uint8 = new Uint8Array(buffer);
+
+  let text = "";
+  try {
+    text = new TextDecoder("shift-jis").decode(uint8);
+  } catch (e) {
+    text = new TextDecoder("utf-8").decode(uint8);
+  }
+
+  if (!text || text.indexOf("�") !== -1) {
+    try {
+      text = new TextDecoder("utf-8").decode(uint8);
+    } catch (e) {}
+  }
+
+  return text;
+}
+
+async function handleFiles(files) {
+  const csvFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith(".csv"));
+  if (!csvFiles.length) return;
+
+  document.getElementById("drop-text").textContent = "試合集計中...";
+
+  const existingNames = new Set(allResults.map(r => r.name));
+  const targets = csvFiles.filter(f => !existingNames.has(f.name));
+
+  const processed = await Promise.all(
+    targets.map(async f => {
+      try {
+        const text = await readFileSmart(f);
+        return processFile(f.name, text);
+      } catch (e) {
+        return null;
+      }
+    })
+  );
+
+  allResults = [...allResults, ...processed.filter(Boolean)];
+  document.getElementById("drop-text").textContent = "さらに追加登録できます";
+  renderResults();
+}
+
+const dropZone = document.getElementById("drop-zone");
+const fileInput = document.getElementById("file-input");
+
+dropZone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", e => handleFiles(e.target.files));
+
+dropZone.addEventListener("dragover", e => {
+  e.preventDefault();
+  dropZone.classList.add("drag");
+});
+
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove("drag");
+});
+
+dropZone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropZone.classList.remove("drag");
+  handleFiles(e.dataTransfer.files);
+});
+</script>
+</body>
+</html>
